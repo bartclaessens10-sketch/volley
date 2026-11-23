@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1726">
+  <title>Volley · training</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="spelen">
+  <div class="speler" id="speler">
+    <div class="boven">
+      <span class="tnaam" id="tnaam">Training</span>
+      <span class="teller" id="teller"></span>
+      <a href="kies.html" title="Filmpjes kiezen">Kiezen</a>
+    </div>
+    <div class="scherm" id="scherm"><div class="geen">Even laden…</div></div>
+    <div class="oefening" id="oefening"><div class="naam"></div><div class="maker"></div></div>
+    <div class="bediening">
+      <button id="terug" aria-label="Vorig filmpje">‹</button>
+      <button id="verder" class="verder">Volgende ›</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    V.registreer();
+    const $ = id => document.getElementById(id);
+    let reeks = [];      // de filmpjes van de training, in volgorde
+    let nu = 0;
+
+    function toon() {
+      const f = reeks[nu];
+      $('teller').textContent = `${nu + 1} van ${reeks.length}`;
+      $('terug').disabled = nu === 0;
+      $('verder').disabled = nu === reeks.length - 1;
+      $('verder').textContent = nu === reeks.length - 1 ? 'Laatste' : 'Volgende ›';
+      $('oefening').querySelector('.naam').textContent = V.naamVan(f);
+      $('oefening').querySelector('.maker').textContent = [V.bronNaam[f.bron], f.maker].filter(Boolean).join(' · ');
+      const adres = V.speler(f);
+      const scherm = $('scherm');
+      scherm.replaceChildren();
+      if (adres) {
+        scherm.append(V.el('iframe', {
+          src: adres, class: f.bron, title: V.naamVan(f),
+          allow: 'autoplay; encrypted-media; fullscreen; picture-in-picture',
+          allowfullscreen: true, scrolling: f.bron === 'instagram' ? 'no' : false
+        }));
+      } else {
+        scherm.append(V.el('div', { class: 'geen' }, 'Dit filmpje kan ik hier niet tonen. ',
+          V.el('a', { href: f.link, target: '_blank', rel: 'noopener' }, 'Open het in de app')));
+      }
+      try { sessionStorage.setItem('volley.nu', String(nu)); } catch (e) {}
+    }
+
+    function ga(stap) {
+      const nieuw = Math.max(0, Math.min(reeks.length - 1, nu + stap));
+      if (nieuw !== nu) { nu = nieuw; toon(); }
+    }
+
+    $('terug').onclick = () => ga(-1);
+    $('verder').onclick = () => ga(1);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') ga(1);
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ga(-1);
+    });
+
+    // Vegen werkt overal buiten het filmpje zelf (een filmpje vangt zijn eigen vegen op).
+    let start = null;
+    document.addEventListener('touchstart', e => { start = e.touches[0]; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.clientX, dy = t.clientY - start.clientY;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 50) {
+        if (Math.abs(dy) > Math.abs(dx)) ga(dy < 0 ? 1 : -1); else ga(dx < 0 ? 1 : -1);
+      }
+      start = null;
+    }, { passive: true });
+
+    // Het scherm blijft aan zolang de training openstaat.
+    let slot = null;
+    async function houdWakker() {
+      try { if ('wakeLock' in navigator && document.visibilityState === 'visible') slot = await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', houdWakker);
+
+    function zet(data) {
+      const t = data && data.training;
+      const perId = Object.fromEntries((data && data.filmpjes || []).map(f => [f.id, f]));
+      reeks = t ? t.filmpjes.map(id => perId[id]).filter(Boolean) : [];
+      if (!reeks.length) {
+        $('tnaam').textContent = 'Volley';
+        $('teller').textContent = '';
+        $('scherm').replaceChildren(V.el('div', { class: 'melding' },
+          V.el('h1', {}, 'Nog geen training'),
+          V.el('p', {}, 'Kies je oefeningen op je computer. Daarna staan ze hier, in jouw volgorde.'),
+          V.el('p', {}, V.el('a', { href: 'kies.html' }, 'Filmpjes kiezen'))));
+        $('oefening').hidden = true;
+        document.querySelector('.bediening').hidden = true;
+        return;
+      }
+      $('oefening').hidden = false;
+      document.querySelector('.bediening').hidden = false;
+      $('tnaam').textContent = t.naam || 'Training';
+      let bewaard = 0;
+      try { bewaard = +sessionStorage.getItem('volley.nu') || 0; } catch (e) {}
+      nu = Math.min(bewaard, reeks.length - 1);
+      toon();
+    }
+
+    (async () => {
+      if (!V.gekoppeld()) { location.href = 'instellen.html'; return; }
+      houdWakker();
+      V.wachtrij.verstuur();
+      const oud = V.laatsteLijst();
+      if (oud) zet(oud);
+      try {
+        const vers = await V.lijst();
+        const zelfde = oud && oud.training && vers.training && oud.training.id === vers.training.id;
+        if (!zelfde) { try { sessionStorage.removeItem('volley.nu'); } catch (e) {} zet(vers); }
+      } catch (e) {
+        if (!oud) $('scherm').replaceChildren(V.el('div', { class: 'geen' }, 'Geen verbinding. Probeer het zo meteen opnieuw.'));
+      }
+    })();
+  </script>
+</body>
+</html>

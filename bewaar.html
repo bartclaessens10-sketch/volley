@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1726">
+  <title>Volley · bewaren</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="midden">
+    <div class="vink wacht" id="vink">…</div>
+    <h1 id="kop">Bewaren</h1>
+    <p id="uitleg"></p>
+    <p id="verder" hidden><a href="kies.html">Alle filmpjes</a> · <a href="./">Je training</a></p>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    V.registreer();
+    const $ = id => document.getElementById(id);
+
+    function klaar(soort, kop, uitleg) {
+      $('vink').className = 'vink' + (soort === 'goed' ? '' : ' ' + soort);
+      $('vink').textContent = soort === 'goed' ? '✓' : soort === 'fout' ? '!' : '✓';
+      $('kop').textContent = kop;
+      $('uitleg').textContent = uitleg;
+      $('verder').hidden = false;
+    }
+
+    (async () => {
+      const q = new URLSearchParams(location.search);
+      const tekst = [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join(' ');
+      // Het adres opkuisen, zodat de app bij heropenen niet opnieuw bewaart.
+      history.replaceState(null, '', location.pathname);
+
+      if (!V.gekoppeld()) { location.href = 'instellen.html'; return; }
+      const link = V.zoekLink(q.get('url')) || V.zoekLink(tekst);
+      if (!link) {
+        if (!tekst) { location.href = './'; return; }
+        klaar('fout', 'Geen link gevonden', 'In wat je deelde, staat geen link naar een filmpje. Kies in Instagram of TikTok op Delen, en dan Volley.');
+        return;
+      }
+      $('uitleg').textContent = V.bronNaam[V.herken(link).bron] + '-filmpje';
+      try {
+        const j = await V.bewaar(tekst, link);
+        V.wachtrij.verstuur();
+        const f = j.filmpje;
+        klaar('goed', f.dubbel ? 'Had je al' : 'Bewaard',
+          (f.naam ? f.naam + '. ' : '') + 'Tik op terug om verder te scrollen.');
+      } catch (e) {
+        if (e.message === 'geen-link') {
+          klaar('fout', 'Geen link gevonden', 'Dit filmpje kon ik niet herkennen.');
+        } else {
+          V.wachtrij.voegToe({ tekst, link, op: new Date().toISOString() });
+          klaar('wacht', 'Bewaard op je gsm', 'Er is nu geen verbinding. Het gaat vanzelf door zodra je Volley opnieuw opent met internet.');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

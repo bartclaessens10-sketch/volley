@@ -1,0 +1,194 @@
+:root {
+  --bg: #0d1726;
+  --kaart: #16233a;
+  --kaart-2: #1d2d49;
+  --lijn: #2a3d5f;
+  --tekst: #f2f5fa;
+  --zacht: #9fb0c9;
+  --geel: #ffc933;
+  --geel-donker: #e0a800;
+  --blauw: #4d94ff;
+  --rood: #ff6b6b;
+  --groen: #3ddc97;
+  --rond: 14px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--tekst);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+a { color: var(--geel); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+.balk {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--lijn);
+}
+.balk .logo { font-weight: 800; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--tekst); }
+.balk .logo img { width: 26px; height: 26px; border-radius: 7px; }
+.balk nav { margin-left: auto; display: flex; gap: 6px; }
+.balk nav a {
+  color: var(--zacht); text-decoration: none; padding: 6px 12px; border-radius: 999px; font-size: 15px;
+}
+.balk nav a.nu { background: var(--kaart-2); color: var(--tekst); }
+
+.knop {
+  border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 650;
+  background: var(--kaart-2); color: var(--tekst);
+}
+.knop:hover { background: var(--lijn); }
+.knop.geel { background: var(--geel); color: #1a1300; }
+.knop.geel:hover { background: var(--geel-donker); }
+.knop.groot { width: 100%; padding: 16px; font-size: 18px; }
+.knop:disabled { opacity: .5; cursor: default; }
+
+.melding { padding: 24px 16px; text-align: center; color: var(--zacht); }
+.melding h1 { color: var(--tekst); font-size: 22px; margin: 0 0 8px; }
+
+/* ---------- Bewaren ---------- */
+.midden {
+  min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 24px 20px; gap: 12px;
+}
+.vink {
+  width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--groen); color: #052b1b; font-size: 56px; font-weight: 900;
+}
+.vink.wacht { background: var(--kaart-2); color: var(--zacht); font-size: 30px; }
+.vink.fout { background: var(--rood); color: #2b0505; }
+.midden h1 { margin: 8px 0 0; font-size: 28px; }
+.midden p { margin: 0; color: var(--zacht); max-width: 320px; }
+
+/* ---------- Afspelen ---------- */
+body.spelen { overflow: hidden; }
+.speler {
+  height: 100dvh; display: grid; grid-template-rows: auto 1fr auto auto;
+}
+.speler .boven {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+}
+.speler .boven .tnaam { color: var(--zacht); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.speler .boven .teller { margin-left: auto; font-weight: 800; font-size: 20px; color: var(--geel); white-space: nowrap; }
+.speler .boven a { color: var(--zacht); font-size: 14px; text-decoration: none; }
+.scherm {
+  position: relative; min-height: 0; display: flex; align-items: center; justify-content: center;
+  padding: 0 8px;
+}
+.scherm iframe {
+  border: 0; border-radius: 12px; background: #000;
+  height: 100%; max-height: 100%; aspect-ratio: 9 / 16; max-width: 100%;
+}
+.scherm iframe.instagram { aspect-ratio: auto; width: min(100%, 420px); background: #fff; }
+.scherm .geen {
+  color: var(--zacht); text-align: center; padding: 20px;
+}
+.oefening { padding: 10px 16px 4px; }
+.oefening .naam { font-size: 22px; font-weight: 750; line-height: 1.2; }
+.oefening .maker { color: var(--zacht); font-size: 14px; }
+.bediening {
+  display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.bediening button {
+  border: 0; border-radius: 16px; padding: 20px 0; font-size: 20px; font-weight: 800;
+  background: var(--kaart-2); color: var(--tekst);
+}
+.bediening button.verder { background: var(--geel); color: #1a1300; }
+.bediening button:disabled { opacity: .35; }
+
+/* ---------- Kiezen ---------- */
+.kiezen {
+  display: grid; grid-template-columns: 1fr 380px; gap: 20px;
+  padding: 16px; max-width: 1400px; margin: 0 auto;
+}
+.kiezen h2 { margin: 0 0 10px; font-size: 20px; }
+.filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.filters button {
+  border: 1px solid var(--lijn); background: transparent; color: var(--zacht);
+  padding: 6px 14px; border-radius: 999px;
+}
+.filters button.nu { background: var(--kaart-2); color: var(--tekst); border-color: var(--kaart-2); }
+.filters .aantal { color: var(--zacht); font-size: 14px; margin-left: 6px; }
+
+.raster {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px;
+}
+.kaart {
+  background: var(--kaart); border: 1px solid var(--lijn); border-radius: var(--rond);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.kaart.gekozen { border-color: var(--geel); box-shadow: 0 0 0 1px var(--geel); }
+.kaart .beeld {
+  aspect-ratio: 9 / 14; background: #0a1220; position: relative; display: grid; place-items: center;
+  cursor: pointer; overflow: hidden;
+}
+.kaart .beeld img { width: 100%; height: 100%; object-fit: cover; }
+.kaart .beeld iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.kaart .beeld .speel {
+  position: absolute; width: 58px; height: 58px; border-radius: 50%;
+  background: rgba(255, 255, 255, .92); color: #0d1726; display: grid; place-items: center; font-size: 22px;
+  padding-left: 4px;
+}
+.kaart .beeld .bron {
+  position: absolute; left: 10px; top: 10px; font-size: 12px; font-weight: 700;
+  background: rgba(0, 0, 0, .55); padding: 3px 8px; border-radius: 999px;
+}
+.kaart .beeld .leeg {
+  position: absolute; left: 0; right: 0; bottom: 12px;
+  color: var(--zacht); font-size: 13px; padding: 0 10px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kaart .info { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.kaart input.naam {
+  width: 100%; background: var(--kaart-2); border: 1px solid transparent; border-radius: 8px;
+  padding: 7px 9px; font-weight: 600;
+}
+.kaart input.naam:focus { outline: none; border-color: var(--blauw); }
+.kaart .meta { color: var(--zacht); font-size: 13px; }
+.kaart .knoppen { display: flex; gap: 6px; }
+.kaart .knoppen .knop { flex: 1; padding: 8px 10px; font-size: 14px; }
+.kaart .knoppen .knop.klein { flex: 0 0 auto; }
+
+.training {
+  position: sticky; top: 16px; align-self: start;
+  background: var(--kaart); border: 1px solid var(--lijn); border-radius: var(--rond); padding: 16px;
+  display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 32px);
+}
+.training input.tnaam {
+  width: 100%; background: var(--kaart-2); border: 1px solid transparent; border-radius: 10px;
+  padding: 10px 12px; font-size: 18px; font-weight: 700;
+}
+.training ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+.training li {
+  display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px;
+  background: var(--kaart-2); border-radius: 10px; padding: 8px 8px 8px 10px; cursor: grab;
+}
+.training li.sleep { opacity: .4; }
+.training li.boven { box-shadow: inset 0 3px 0 var(--geel); }
+.training li .nr { font-weight: 800; color: var(--geel); }
+.training li .t { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.training li .t small { display: block; color: var(--zacht); font-size: 12px; }
+.training li .mini { display: flex; gap: 2px; }
+.training li .mini button {
+  border: 0; background: transparent; color: var(--zacht); width: 30px; height: 30px; border-radius: 8px; font-size: 16px;
+}
+.training li .mini button:hover { background: var(--lijn); color: var(--tekst); }
+.training .leeg { color: var(--zacht); font-size: 15px; padding: 8px 2px; }
+.training .status { color: var(--groen); font-size: 14px; min-height: 20px; }
+.training .status.fout { color: var(--rood); }
+.training .rij { display: flex; gap: 8px; }
+
+.onder { color: var(--zacht); font-size: 13px; text-align: center; padding: 20px; }
+
+@media (max-width: 860px) {
+  .kiezen { grid-template-columns: 1fr; padding: 12px 16px; }
+  .training { position: static; max-height: none; order: -1; }
+  .raster { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+}

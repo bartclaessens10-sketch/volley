@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1726">
+  <title>Volley · kiezen</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="balk">
+    <a class="logo" href="./"><img src="icon-192.png" alt="">Volley</a>
+    <nav><a href="./">Training</a><a href="kies.html" class="nu">Kiezen</a></nav>
+  </header>
+
+  <main class="kiezen">
+    <section>
+      <div class="filters" id="filters">
+        <button data-f="week" class="nu">Deze week</button>
+        <button data-f="alles">Alles</button>
+        <button data-f="verborgen">Verborgen</button>
+        <span class="aantal" id="aantal"></span>
+      </div>
+      <div class="raster" id="raster"><div class="melding">Even laden…</div></div>
+    </section>
+
+    <aside class="training">
+      <input class="tnaam" id="tnaam" aria-label="Naam van de training">
+      <ol id="lijst"></ol>
+      <div class="rij">
+        <button class="knop geel groot" id="zet">Zet op mijn gsm</button>
+      </div>
+      <div class="rij">
+        <button class="knop" id="nieuw">Nieuwe training</button>
+      </div>
+      <div class="status" id="status"></div>
+    </aside>
+  </main>
+  <p class="onder" id="onder"></p>
+
+  <script src="app.js"></script>
+  <script>
+    V.registreer();
+    const $ = id => document.getElementById(id);
+    const el = V.el;
+
+    let filmpjes = [];
+    let gekozen = [];        // ids, in volgorde
+    let filter = 'week';
+    let opgeslagen = true;   // is wat links staat ook wat op de gsm staat?
+
+    const perId = () => Object.fromEntries(filmpjes.map(f => [f.id, f]));
+    const vandaag = () => 'Training ' + V.datum(new Date().toISOString(), true);
+
+    // ---------- de filmpjes ----------
+
+    function zichtbaar() {
+      const week = Date.now() - 7 * 864e5;
+      if (filter === 'verborgen') return filmpjes.filter(f => f.verborgen);
+      const actief = filmpjes.filter(f => !f.verborgen);
+      if (filter === 'week') return actief.filter(f => new Date(f.bewaard).getTime() >= week);
+      return actief;
+    }
+
+    function kaart(f) {
+      const adres = V.speler(f, { auto: true });
+      const beeld = el('div', { class: 'beeld', title: adres ? 'Klik om te bekijken' : 'Open het filmpje' },
+        f.beeld ? el('img', { src: f.beeld, alt: '', loading: 'lazy', onerror: e => e.target.remove() }) : el('div', { class: 'leeg' }, f.maker || V.bronNaam[f.bron]),
+        el('span', { class: 'bron' }, V.bronNaam[f.bron] || 'Link'),
+        el('span', { class: 'speel' }, '▶'));
+      beeld.onclick = () => {
+        if (!adres) { window.open(f.link, '_blank', 'noopener'); return; }
+        if (beeld.querySelector('iframe')) return;
+        beeld.replaceChildren(el('iframe', { src: adres, allow: 'autoplay; encrypted-media; fullscreen', allowfullscreen: true, title: V.naamVan(f) }));
+      };
+
+      const naam = el('input', { class: 'naam', value: f.naam || '', placeholder: 'Geef het een naam', 'aria-label': 'Naam van de oefening' });
+      naam.onchange = async () => {
+        f.naam = naam.value.trim();
+        tekenLijst();
+        try { await V.wijzig(f.id, { naam: f.naam }); } catch (e) { status('De naam is niet bewaard. Probeer opnieuw.', true); }
+      };
+      naam.onkeydown = e => { if (e.key === 'Enter') naam.blur(); };
+
+      const zit = gekozen.includes(f.id);
+      const voeg = el('button', { class: 'knop' + (zit ? '' : ' geel') }, zit ? 'Erin ✓' : '+ In training');
+      voeg.onclick = () => {
+        if (gekozen.includes(f.id)) gekozen = gekozen.filter(x => x !== f.id);
+        else gekozen.push(f.id);
+        gewijzigd();
+      };
+      const verberg = el('button', { class: 'knop klein', title: f.verborgen ? 'Terugzetten' : 'Verbergen' }, f.verborgen ? 'Terug' : 'Verberg');
+      verberg.onclick = async () => {
+        f.verborgen = !f.verborgen;
+        if (f.verborgen) gekozen = gekozen.filter(x => x !== f.id);
+        tekenRaster(); tekenLijst();
+        try { await V.wijzig(f.id, { verborgen: f.verborgen }); } catch (e) { status('Dat is niet bewaard. Probeer opnieuw.', true); }
+      };
+
+      return el('div', { class: 'kaart' + (zit ? ' gekozen' : ''), 'data-id': f.id },
+        beeld,
+        el('div', { class: 'info' },
+          naam,
+          el('div', { class: 'meta' }, [f.maker, 'bewaard ' + V.datum(f.bewaard, true)].filter(Boolean).join(' · ')),
+          el('div', { class: 'knoppen' }, voeg, verberg)));
+    }
+
+    function tekenRaster() {
+      const lijst = zichtbaar();
+      $('aantal').textContent = lijst.length === 1 ? '1 filmpje' : lijst.length + ' filmpjes';
+      const raster = $('raster');
+      raster.replaceChildren();
+      if (!lijst.length) {
+        const leeg = filter === 'week' && filmpjes.some(f => !f.verborgen)
+          ? 'Deze week heb je nog niets bewaard. Kijk bij Alles.'
+          : filter === 'verborgen' ? 'Niets verborgen.' : 'Nog geen filmpjes. Tik in Instagram of TikTok op Delen en kies Volley.';
+        raster.append(el('div', { class: 'melding' }, leeg));
+        return;
+      }
+      lijst.forEach(f => raster.append(kaart(f)));
+    }
+
+    // ---------- de training ----------
+
+    let sleepId = null;
+    function tekenLijst() {
+      const p = perId();
+      gekozen = gekozen.filter(id => p[id]);
+      const ol = $('lijst');
+      ol.replaceChildren();
+      if (!gekozen.length) {
+        ol.append(el('div', { class: 'leeg' }, 'Klik op "+ In training" bij een filmpje. Sleep om de volgorde te veranderen.'));
+      }
+      gekozen.forEach((id, i) => {
+        const f = p[id];
+        const op = el('button', { title: 'Hoger', 'aria-label': 'Hoger' }, '↑');
+        const neer = el('button', { title: 'Lager', 'aria-label': 'Lager' }, '↓');
+        const weg = el('button', { title: 'Eruit', 'aria-label': 'Eruit' }, '✕');
+        op.onclick = () => schuif(i, i - 1);
+        neer.onclick = () => schuif(i, i + 1);
+        weg.onclick = () => { gekozen.splice(i, 1); gewijzigd(); };
+        const li = el('li', { draggable: 'true', 'data-id': id },
+          el('span', { class: 'nr' }, String(i + 1)),
+          el('span', { class: 't' }, V.naamVan(f), el('small', {}, [V.bronNaam[f.bron], f.maker].filter(Boolean).join(' · '))),
+          el('span', { class: 'mini' }, op, neer, weg));
+        li.addEventListener('dragstart', e => { sleepId = id; li.classList.add('sleep'); e.dataTransfer.effectAllowed = 'move'; });
+        li.addEventListener('dragend', () => { sleepId = null; li.classList.remove('sleep'); });
+        li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('boven'); });
+        li.addEventListener('dragleave', () => li.classList.remove('boven'));
+        li.addEventListener('drop', e => {
+          e.preventDefault(); li.classList.remove('boven');
+          if (!sleepId || sleepId === id) return;
+          const van = gekozen.indexOf(sleepId);
+          gekozen.splice(van, 1);
+          gekozen.splice(gekozen.indexOf(id), 0, sleepId);
+          gewijzigd();
+        });
+        ol.append(li);
+      });
+      $('zet').disabled = !gekozen.length;
+      $('zet').textContent = gekozen.length ? `Zet op mijn gsm (${gekozen.length})` : 'Zet op mijn gsm';
+    }
+
+    function schuif(van, naar) {
+      if (naar < 0 || naar >= gekozen.length) return;
+      const [x] = gekozen.splice(van, 1);
+      gekozen.splice(naar, 0, x);
+      gewijzigd();
+    }
+
+    function gewijzigd() {
+      opgeslagen = false;
+      status('');
+      tekenLijst();
+      tekenRaster();
+    }
+
+    function status(t, fout = false) {
+      $('status').textContent = t;
+      $('status').className = 'status' + (fout ? ' fout' : '');
+    }
+
+    $('zet').onclick = async () => {
+      $('zet').disabled = true;
+      status('Bezig…');
+      try {
+        const naam = $('tnaam').value.trim() || vandaag();
+        await V.training(naam, gekozen);
+        opgeslagen = true;
+        const u = new Date();
+        status(`Staat op je gsm (${u.getHours()}u${String(u.getMinutes()).padStart(2, '0')}). Open Volley op je gsm.`);
+      } catch (e) {
+        status('Niet gelukt. Is er internet? Probeer opnieuw.', true);
+      }
+      $('zet').disabled = !gekozen.length;
+    };
+
+    $('nieuw').onclick = () => {
+      if (gekozen.length && !opgeslagen && !confirm('Je lijst is nog niet op je gsm gezet. Toch leegmaken?')) return;
+      gekozen = [];
+      $('tnaam').value = vandaag();
+      gewijzigd();
+    };
+    $('tnaam').oninput = () => { opgeslagen = false; status(''); };
+
+    $('filters').onclick = e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      filter = b.dataset.f;
+      document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('nu', x === b));
+      tekenRaster();
+    };
+
+    window.addEventListener('beforeunload', e => {
+      if (gekozen.length && !opgeslagen) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    (async () => {
+      if (!V.gekoppeld()) { location.href = 'instellen.html'; return; }
+      if (V.isDemo()) $('onder').textContent = 'Je kijkt naar voorbeeldfilmpjes. Je eigen filmpjes komen er na het koppelen.';
+      await V.wachtrij.verstuur();
+      try {
+        const j = await V.lijst();
+        filmpjes = j.filmpjes || [];
+        if (j.training) { gekozen = j.training.filmpjes.slice(); $('tnaam').value = j.training.naam; }
+        else $('tnaam').value = vandaag();
+        if (!filmpjes.some(f => !f.verborgen && new Date(f.bewaard).getTime() >= Date.now() - 7 * 864e5) && filmpjes.length) {
+          filter = 'alles';
+          document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('nu', x.dataset.f === 'alles'));
+        }
+        tekenRaster();
+        tekenLijst();
+      } catch (e) {
+        $('raster').replaceChildren(el('div', { class: 'melding' }, 'Ik kan je filmpjes nu niet ophalen. Is er internet? Herlaad de pagina.'));
+      }
+    })();
+  </script>
+</body>
+</html>
