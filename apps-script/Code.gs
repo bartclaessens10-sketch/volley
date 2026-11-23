@@ -15,6 +15,9 @@
  */
 
 const APP_ADRES = 'https://bartclaessens10-sketch.github.io/volley/';
+// Het adres van de web-app (Implementeren > Implementaties beheren > URL).
+// ScriptApp.getService().getUrl() geeft een intern adres dat niet werkt, daarom staat het hier.
+const WEBAPP_ADRES = 'https://script.google.com/macros/s/AKfycbwX2mFU0drX2cAXcvZ_Di-Bcq36wQt1z_epR2VRhzYMWFAg30hbbE3CP4bOlMK2aaAirQ/exec';
 const KOP_F = ['id', 'bewaard', 'bron', 'link', 'embed', 'naam', 'maker', 'beeld', 'verborgen'];
 const KOP_T = ['id', 'gemaakt', 'naam', 'filmpjes'];
 
@@ -26,8 +29,7 @@ function instellen() {
 
 function koppellink() {
   const p = PropertiesService.getScriptProperties();
-  const url = ScriptApp.getService().getUrl().replace(/\/dev$/, '/exec');
-  Logger.log(APP_ADRES + 'instellen.html#api=' + encodeURIComponent(url) + '&k=' + p.getProperty('SLEUTEL'));
+  Logger.log(APP_ADRES + 'instellen.html#api=' + encodeURIComponent(WEBAPP_ADRES) + '&k=' + p.getProperty('SLEUTEL'));
 }
 
 // ---- ingang ----
