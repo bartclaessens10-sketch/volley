@@ -1,6 +1,6 @@
 // Volley: houdt de app zelf bij op de gsm, zodat ze snel opent.
 // De filmpjes zelf komen altijd van Instagram, TikTok of YouTube.
-const CACHE = 'volley-v1';
+const CACHE = 'volley-v2';
 const SCHIL = ['./', 'index.html', 'kies.html', 'bewaar.html', 'instellen.html', 'app.js', 'style.css',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 

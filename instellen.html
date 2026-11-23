@@ -8,45 +8,94 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .plak { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 8px; }
+    .plak textarea {
+      width: 100%; min-height: 84px; resize: vertical; background: var(--kaart-2); color: var(--tekst);
+      border: 1px solid var(--lijn); border-radius: 10px; padding: 10px; font: 14px/1.4 ui-monospace, monospace;
+    }
+    #qr { background: #fff; padding: 14px; border-radius: 14px; }
+    #qr img, #qr canvas { display: block; width: 220px; height: 220px; }
+  </style>
 </head>
 <body>
   <div class="midden">
     <div class="vink wacht" id="vink">🏐</div>
     <h1 id="kop">Volley koppelen</h1>
-    <p id="uitleg">Open de koppellink die je van Vik kreeg, op je gsm en op je computer. Daarna weet dit toestel waar je filmpjes staan.</p>
+    <p id="uitleg">Plak hieronder de koppellink uit het script Volley. Daarna weet dit toestel waar je filmpjes staan.</p>
+
+    <div class="plak" id="plakvak">
+      <textarea id="plak" placeholder="Plak hier je koppellink" aria-label="Koppellink"></textarea>
+      <button class="knop geel" id="koppel">Koppel dit toestel</button>
+      <p class="fout" id="fout" hidden style="color: var(--rood)">Daarin vond ik geen koppellink.</p>
+    </div>
+
+    <div id="gsm" hidden>
+      <p style="margin-bottom: 10px"><b style="color: var(--tekst)">Nu je gsm.</b> Open de camera van je gsm, richt hem op deze code en tik op de link die verschijnt.</p>
+      <div id="qr"></div>
+    </div>
+
     <p id="verder" hidden><a href="./">Naar je training</a> · <a href="kies.html">Filmpjes kiezen</a></p>
     <p id="demo"><a href="#demo">Of probeer het eerst met voorbeeldfilmpjes</a></p>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="app.js"></script>
   <script>
     V.registreer();
     const $ = id => document.getElementById(id);
 
+    // Haalt api en sleutel uit een koppellink, ook als er tekst rond staat.
+    function leesKoppeling(tekst) {
+      const m = String(tekst || '').match(/api=([^&\s#]+)&k=([A-Za-z0-9]+)/);
+      if (!m) return null;
+      return { api: decodeURIComponent(m[1]), k: m[2] };
+    }
+
     function lees() {
       const h = location.hash.slice(1);
       if (!h) return;
-      if (h === 'demo') {
-        V.koppel('demo', '');
-      } else {
-        const q = new URLSearchParams(h);
-        if (!q.get('api') || !q.get('k')) return;
-        V.koppel(q.get('api'), q.get('k'));
+      if (h === 'demo') V.koppel('demo', '');
+      else {
+        const kp = leesKoppeling(h);
+        if (!kp) return;
+        V.koppel(kp.api, kp.k);
       }
       history.replaceState(null, '', location.pathname); // de sleutel niet in de adresbalk laten staan
       toon();
     }
+
+    $('koppel').onclick = () => {
+      const kp = leesKoppeling($('plak').value);
+      $('fout').hidden = !!kp;
+      if (!kp) return;
+      V.koppel(kp.api, kp.k);
+      $('plak').value = '';
+      toon();
+    };
 
     function toon() {
       if (!V.gekoppeld()) return;
       $('vink').className = 'vink';
       $('vink').textContent = '✓';
       $('kop').textContent = 'Gekoppeld';
-      $('uitleg').textContent = V.isDemo()
-        ? 'Dit toestel toont nu voorbeeldfilmpjes. Open later de echte koppellink om je eigen filmpjes te zien.'
-        : 'Dit toestel weet nu waar je filmpjes staan.';
-      $('verder').hidden = false;
+      $('plakvak').hidden = true;
       $('demo').hidden = true;
+      $('verder').hidden = false;
+      if (V.isDemo()) {
+        $('uitleg').textContent = 'Dit toestel toont nu voorbeeldfilmpjes. Plak later de echte koppellink om je eigen filmpjes te zien.';
+        return;
+      }
+      $('uitleg').textContent = 'Dit toestel weet nu waar je filmpjes staan.';
+      // Op de computer: een code om de gsm mee te koppelen.
+      const opGsm = matchMedia('(pointer: coarse)').matches && innerWidth < 700;
+      if (!opGsm && window.QRCode) {
+        const { api, k } = V.instelling();
+        const link = location.origin + location.pathname + '#api=' + encodeURIComponent(api) + '&k=' + k;
+        $('qr').replaceChildren();
+        new QRCode($('qr'), { text: link, width: 440, height: 440, correctLevel: QRCode.CorrectLevel.M });
+        $('gsm').hidden = false;
+      }
     }
 
     window.addEventListener('hashchange', lees);
