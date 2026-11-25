@@ -117,6 +117,20 @@ body.spelen { overflow: hidden; }
 }
 .filters button.nu { background: var(--kaart-2); color: var(--tekst); border-color: var(--kaart-2); }
 .filters .aantal { color: var(--zacht); font-size: 14px; margin-left: 6px; }
+.filters.soorten { margin-top: -6px; }
+.filters.soorten button { font-size: 14px; padding: 4px 12px; }
+
+.kaart .labels { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  border: 1px solid var(--lijn); background: transparent; color: var(--zacht);
+  border-radius: 999px; padding: 2px 9px; font-size: 12px; line-height: 1.5;
+}
+.chip:hover { color: var(--tekst); border-color: var(--zacht); }
+.chip.aan { background: var(--blauw); border-color: var(--blauw); color: #fff; }
+.chip-in {
+  width: 110px; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--blauw); background: var(--kaart-2); outline: none;
+}
 
 .raster {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px;

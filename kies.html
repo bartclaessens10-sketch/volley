@@ -23,12 +23,16 @@
         <button data-f="verborgen">Verborgen</button>
         <span class="aantal" id="aantal"></span>
       </div>
+      <div class="filters soorten" id="soorten"></div>
       <div class="raster" id="raster"><div class="melding">Even laden…</div></div>
     </section>
 
     <aside class="training">
       <input class="tnaam" id="tnaam" aria-label="Naam van de training">
       <ol id="lijst"></ol>
+      <div class="rij">
+        <button class="knop" id="orden" title="Zet de training in de juiste volgorde volgens de kernwoorden">Orden: opwarming eerst, game-like laatst</button>
+      </div>
       <div class="rij">
         <button class="knop geel groot" id="zet">Zet op mijn gsm</button>
       </div>
@@ -50,6 +54,27 @@
     let gekozen = [];        // ids, in volgorde
     let filter = 'week';
     let opgeslagen = true;   // is wat links staat ook wat op de gsm staat?
+    let soort = '';          // filter op kernwoord
+
+    // Kernwoorden: de vaste eerst, daarna wat Bart er zelf bij typte.
+    const BASIS = ['Opwarming', 'Onderhands', 'Bovenhands', 'Opslag', 'Game-like'];
+    const labelsVan = f => Array.isArray(f.labels) ? f.labels : [];
+    const heeft = (f, l) => labelsVan(f).some(x => x.toLowerCase() === l.toLowerCase());
+    function alleLabels() {
+      const uit = BASIS.slice();
+      filmpjes.forEach(f => labelsVan(f).forEach(l => { if (!uit.some(x => x.toLowerCase() === l.toLowerCase())) uit.push(l); }));
+      return uit;
+    }
+    // Plaats in de training: opwarming vooraan, game-like achteraan, de rest ertussen.
+    function fase(f) {
+      const l = labelsVan(f).map(x => x.toLowerCase());
+      if (l.includes('game-like')) return 5;
+      if (l.includes('opwarming')) return 0;
+      if (l.includes('onderhands')) return 1;
+      if (l.includes('bovenhands')) return 2;
+      if (l.includes('opslag')) return 3;
+      return 4;
+    }
 
     const perId = () => Object.fromEntries(filmpjes.map(f => [f.id, f]));
     const vandaag = () => 'Training ' + V.datum(new Date().toISOString(), true);
@@ -58,10 +83,23 @@
 
     function zichtbaar() {
       const week = Date.now() - 7 * 864e5;
-      if (filter === 'verborgen') return filmpjes.filter(f => f.verborgen);
-      const actief = filmpjes.filter(f => !f.verborgen);
+      const metSoort = l => soort ? l.filter(f => heeft(f, soort)) : l;
+      if (filter === 'verborgen') return metSoort(filmpjes.filter(f => f.verborgen));
+      const actief = metSoort(filmpjes.filter(f => !f.verborgen));
       if (filter === 'week') return actief.filter(f => new Date(f.bewaard).getTime() >= week);
       return actief;
+    }
+
+    function tekenSoorten() {
+      const bar = $('soorten');
+      bar.replaceChildren();
+      const knop = (t, waarde) => {
+        const b = el('button', { class: soort === waarde ? 'nu' : '' }, t);
+        b.onclick = () => { soort = soort === waarde ? '' : waarde; tekenRaster(); };
+        return b;
+      };
+      bar.append(knop('Alle soorten', ''));
+      alleLabels().forEach(l => bar.append(knop(l, l)));
     }
 
     function kaart(f) {
@@ -84,6 +122,42 @@
       };
       naam.onkeydown = e => { if (e.key === 'Enter') naam.blur(); };
 
+      // kernwoorden: klik om aan of uit te zetten, + voor een eigen woord
+      const chips = el('div', { class: 'labels' });
+      const tekenChips = () => {
+        chips.replaceChildren();
+        alleLabels().forEach(l => {
+          const aan = heeft(f, l);
+          const b = el('button', { class: 'chip' + (aan ? ' aan' : ''), type: 'button' }, l);
+          b.onclick = () => zetLabel(l, !aan);
+          chips.append(b);
+        });
+        const plus = el('button', { class: 'chip plus', type: 'button', title: 'Eigen kernwoord' }, '+');
+        plus.onclick = () => {
+          const inp = el('input', { class: 'chip-in', placeholder: 'Kernwoord', maxlength: '30' });
+          let klaar = false;
+          const af = () => {
+            if (klaar) return;
+            klaar = true;
+            const t = inp.value.trim();
+            if (t) zetLabel(t, true); else tekenChips();
+          };
+          inp.onkeydown = e => { if (e.key === 'Enter') af(); if (e.key === 'Escape') { inp.value = ''; af(); } };
+          inp.onblur = af;
+          plus.replaceWith(inp);
+          inp.focus();
+        };
+        chips.append(plus);
+      };
+      const zetLabel = async (l, aan) => {
+        const nu = labelsVan(f).filter(x => x.toLowerCase() !== l.toLowerCase());
+        if (aan) nu.push(l);
+        f.labels = nu;
+        tekenChips(); tekenLijst(); tekenSoorten();
+        try { await V.wijzig(f.id, { labels: f.labels }); } catch (e) { status('Het kernwoord is niet bewaard. Probeer opnieuw.', true); }
+      };
+      tekenChips();
+
       const zit = gekozen.includes(f.id);
       const voeg = el('button', { class: 'knop' + (zit ? '' : ' geel') }, zit ? 'Erin ✓' : '+ In training');
       voeg.onclick = () => {
@@ -103,11 +177,13 @@
         beeld,
         el('div', { class: 'info' },
           naam,
+          chips,
           el('div', { class: 'meta' }, [f.maker, 'bewaard ' + V.datum(f.bewaard, true)].filter(Boolean).join(' · ')),
           el('div', { class: 'knoppen' }, voeg, verberg)));
     }
 
     function tekenRaster() {
+      tekenSoorten();
       const lijst = zichtbaar();
       $('aantal').textContent = lijst.length === 1 ? '1 filmpje' : lijst.length + ' filmpjes';
       const raster = $('raster');
@@ -115,6 +191,7 @@
       if (!lijst.length) {
         const leeg = filter === 'week' && filmpjes.some(f => !f.verborgen)
           ? 'Deze week heb je nog niets bewaard. Kijk bij Alles.'
+          : soort ? 'Geen filmpjes met het kernwoord ' + soort + '.'
           : filter === 'verborgen' ? 'Niets verborgen.' : 'Nog geen filmpjes. Tik in Instagram of TikTok op Delen en kies Volley.';
         raster.append(el('div', { class: 'melding' }, leeg));
         return;
@@ -143,7 +220,7 @@
         weg.onclick = () => { gekozen.splice(i, 1); gewijzigd(); };
         const li = el('li', { draggable: 'true', 'data-id': id },
           el('span', { class: 'nr' }, String(i + 1)),
-          el('span', { class: 't' }, V.naamVan(f), el('small', {}, [V.bronNaam[f.bron], f.maker].filter(Boolean).join(' · '))),
+          el('span', { class: 't' }, V.naamVan(f), el('small', {}, [labelsVan(f).join(', '), V.bronNaam[f.bron]].filter(Boolean).join(' · '))),
           el('span', { class: 'mini' }, op, neer, weg));
         li.addEventListener('dragstart', e => { sleepId = id; li.classList.add('sleep'); e.dataTransfer.effectAllowed = 'move'; });
         li.addEventListener('dragend', () => { sleepId = null; li.classList.remove('sleep'); });
@@ -159,6 +236,7 @@
         });
         ol.append(li);
       });
+      $('orden').disabled = gekozen.length < 2;
       $('zet').disabled = !gekozen.length;
       $('zet').textContent = gekozen.length ? `Zet op mijn gsm (${gekozen.length})` : 'Zet op mijn gsm';
     }
@@ -195,6 +273,14 @@
         status('Niet gelukt. Is er internet? Probeer opnieuw.', true);
       }
       $('zet').disabled = !gekozen.length;
+    };
+
+    $('orden').onclick = () => {
+      const p = perId();
+      gekozen = gekozen.map((id, i) => [id, i])
+        .sort((a, b) => fase(p[a[0]]) - fase(p[b[0]]) || a[1] - b[1])
+        .map(x => x[0]);
+      gewijzigd();
     };
 
     $('nieuw').onclick = () => {
@@ -244,7 +330,7 @@
     let bezigNieuw = false;
     async function kijkNieuw() {
       if (document.hidden || bezigNieuw) return;
-      if (document.activeElement && document.activeElement.matches('input.naam')) return; // niet storen tijdens het typen
+      if (document.activeElement && document.activeElement.matches('.raster input')) return; // niet storen tijdens het typen
       bezigNieuw = true;
       try {
         const j = await V.lijst();

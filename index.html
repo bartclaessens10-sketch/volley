@@ -38,7 +38,7 @@
       $('verder').disabled = nu === reeks.length - 1;
       $('verder').textContent = nu === reeks.length - 1 ? 'Laatste' : 'Volgende ›';
       $('oefening').querySelector('.naam').textContent = V.naamVan(f);
-      $('oefening').querySelector('.maker').textContent = [V.bronNaam[f.bron], f.maker].filter(Boolean).join(' · ');
+      $('oefening').querySelector('.maker').textContent = [(f.labels || []).join(', '), V.bronNaam[f.bron], f.maker].filter(Boolean).join(' · ');
       const adres = V.speler(f);
       const scherm = $('scherm');
       scherm.replaceChildren();

@@ -18,7 +18,7 @@ const APP_ADRES = 'https://bartclaessens10-sketch.github.io/volley/';
 // Het adres van de web-app (Implementeren > Implementaties beheren > URL).
 // ScriptApp.getService().getUrl() geeft een intern adres dat niet werkt, daarom staat het hier.
 const WEBAPP_ADRES = 'https://script.google.com/macros/s/AKfycbwX2mFU0drX2cAXcvZ_Di-Bcq36wQt1z_epR2VRhzYMWFAg30hbbE3CP4bOlMK2aaAirQ/exec';
-const KOP_F = ['id', 'bewaard', 'bron', 'link', 'embed', 'naam', 'maker', 'beeld', 'verborgen'];
+const KOP_F = ['id', 'bewaard', 'bron', 'link', 'embed', 'naam', 'maker', 'beeld', 'verborgen', 'labels'];
 const KOP_T = ['id', 'gemaakt', 'naam', 'filmpjes'];
 
 function instellen() {
@@ -82,7 +82,7 @@ function blad_() {
     p.setProperty('BLAD_ID', ss.getId());
     const f = ss.getSheets()[0];
     f.setName('Filmpjes');
-    f.getRange('A:I').setNumberFormat('@'); // alles als tekst, anders verminkt Sheets de lange TikTok-nummers
+    f.getRange('A:J').setNumberFormat('@'); // alles als tekst, anders verminkt Sheets de lange TikTok-nummers
     f.appendRow(KOP_F);
     f.setFrozenRows(1);
     const t = ss.insertSheet('Trainingen');
@@ -95,10 +95,15 @@ function blad_() {
 
 function rijen_(naam, kop) {
   const sh = blad_().getSheetByName(naam);
+  const kolommen = sh.getLastColumn();
+  if (kolommen < kop.length) { // een nieuwe kolom (zoals labels) bijzetten in een bestaand blad
+    sh.getRange(1, kolommen + 1, sh.getMaxRows(), kop.length - kolommen).setNumberFormat('@');
+    sh.getRange(1, 1, 1, kop.length).setValues([kop]);
+  }
   const w = sh.getDataRange().getValues();
   return w.slice(1).map((r, i) => {
     const o = { _rij: i + 2 };
-    kop.forEach((k, j) => { o[k] = r[j] instanceof Date ? r[j].toISOString() : String(r[j]); });
+    kop.forEach((k, j) => { o[k] = r[j] == null ? '' : r[j] instanceof Date ? r[j].toISOString() : String(r[j]); });
     return o;
   });
 }
@@ -108,7 +113,8 @@ function isWaar_(v) { return String(v).toUpperCase() === 'TRUE'; }
 function netjes_(r) {
   return {
     id: r.id, bewaard: r.bewaard, bron: r.bron, link: r.link, embed: r.embed,
-    naam: r.naam, maker: r.maker, beeld: r.beeld, verborgen: isWaar_(r.verborgen)
+    naam: r.naam, maker: r.maker, beeld: r.beeld, verborgen: isWaar_(r.verborgen),
+    labels: String(r.labels || '').split(',').map(x => x.trim()).filter(Boolean)
   };
 }
 
@@ -146,7 +152,7 @@ function bewaar_(tekst, link) {
     bewaard: new Date().toISOString(),
     bron: info.bron, link: info.link, embed: info.embed || '',
     naam: info.naam || '', maker: info.maker || '', beeld: info.beeld || '',
-    verborgen: 'FALSE'
+    verborgen: 'FALSE', labels: ''
   };
   sh.appendRow(KOP_F.map(k => rij[k]));
   return netjes_(rij);
@@ -235,6 +241,11 @@ function wijzig_(id, velden) {
   if ('naam' in velden) {
     r.naam = String(velden.naam).slice(0, 120);
     sh.getRange(r._rij, KOP_F.indexOf('naam') + 1).setValue(r.naam);
+  }
+  if ('labels' in velden) {
+    const l = Array.isArray(velden.labels) ? velden.labels : String(velden.labels || '').split(',');
+    r.labels = l.map(x => String(x).replace(/,/g, ' ').trim().slice(0, 30)).filter(Boolean).slice(0, 8).join(',');
+    sh.getRange(r._rij, KOP_F.indexOf('labels') + 1).setValue(r.labels);
   }
   if ('verborgen' in velden) {
     r.verborgen = velden.verborgen ? 'TRUE' : 'FALSE';
