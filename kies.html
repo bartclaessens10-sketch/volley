@@ -232,10 +232,31 @@
         }
         tekenRaster();
         tekenLijst();
+        // Wat je intussen op je gsm deelt, verschijnt hier vanzelf (elke 10 seconden, en als je terugkomt naar dit tabblad).
+        setInterval(kijkNieuw, 10000);
+        document.addEventListener('visibilitychange', kijkNieuw);
+        window.addEventListener('focus', kijkNieuw);
       } catch (e) {
         $('raster').replaceChildren(el('div', { class: 'melding' }, 'Ik kan je filmpjes nu niet ophalen. Is er internet? Herlaad de pagina.'));
       }
     })();
+
+    let bezigNieuw = false;
+    async function kijkNieuw() {
+      if (document.hidden || bezigNieuw) return;
+      if (document.activeElement && document.activeElement.matches('input.naam')) return; // niet storen tijdens het typen
+      bezigNieuw = true;
+      try {
+        const j = await V.lijst();
+        const bekend = new Set(filmpjes.map(f => f.id));
+        const nieuw = (j.filmpjes || []).filter(f => !bekend.has(f.id));
+        if (nieuw.length) {
+          filmpjes = nieuw.concat(filmpjes);
+          tekenRaster();
+        }
+      } catch (e) { /* volgende keer opnieuw */ }
+      bezigNieuw = false;
+    }
   </script>
 </body>
 </html>
