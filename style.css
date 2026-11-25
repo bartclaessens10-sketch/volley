@@ -127,6 +127,20 @@ body.spelen { overflow: hidden; }
 }
 .chip:hover { color: var(--tekst); border-color: var(--zacht); }
 .chip.aan { background: var(--blauw); border-color: var(--blauw); color: #fff; }
+.chip.vast { cursor: default; }
+
+.raster .groep { grid-column: 1 / -1; margin: 14px 0 -2px; font-size: 19px; }
+.raster .groep:first-child { margin-top: 0; }
+.raster .groep span { color: var(--zacht); font-weight: 500; }
+
+.kaart .sterren { display: flex; gap: 1px; }
+.kaart .sterren button {
+  border: 0; background: transparent; color: var(--lijn); font-size: 21px; line-height: 1; padding: 0 1px;
+}
+.kaart .sterren button.aan { color: var(--geel); }
+.kaart .sterren:hover button { color: var(--geel); }
+.kaart .sterren button:hover ~ button { color: var(--lijn); }
+.kaart .beeld .bron { z-index: 1; pointer-events: none; }
 .chip-in {
   width: 110px; font-size: 12px; padding: 2px 8px; border-radius: 999px;
   border: 1px solid var(--blauw); background: var(--kaart-2); outline: none;

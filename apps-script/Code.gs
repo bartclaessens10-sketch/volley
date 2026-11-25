@@ -18,7 +18,7 @@ const APP_ADRES = 'https://bartclaessens10-sketch.github.io/volley/';
 // Het adres van de web-app (Implementeren > Implementaties beheren > URL).
 // ScriptApp.getService().getUrl() geeft een intern adres dat niet werkt, daarom staat het hier.
 const WEBAPP_ADRES = 'https://script.google.com/macros/s/AKfycbwX2mFU0drX2cAXcvZ_Di-Bcq36wQt1z_epR2VRhzYMWFAg30hbbE3CP4bOlMK2aaAirQ/exec';
-const KOP_F = ['id', 'bewaard', 'bron', 'link', 'embed', 'naam', 'maker', 'beeld', 'verborgen', 'labels'];
+const KOP_F = ['id', 'bewaard', 'bron', 'link', 'embed', 'naam', 'maker', 'beeld', 'verborgen', 'labels', 'sterren'];
 const KOP_T = ['id', 'gemaakt', 'naam', 'filmpjes'];
 
 function instellen() {
@@ -82,7 +82,7 @@ function blad_() {
     p.setProperty('BLAD_ID', ss.getId());
     const f = ss.getSheets()[0];
     f.setName('Filmpjes');
-    f.getRange('A:J').setNumberFormat('@'); // alles als tekst, anders verminkt Sheets de lange TikTok-nummers
+    f.getRange('A:K').setNumberFormat('@'); // alles als tekst, anders verminkt Sheets de lange TikTok-nummers
     f.appendRow(KOP_F);
     f.setFrozenRows(1);
     const t = ss.insertSheet('Trainingen');
@@ -114,7 +114,8 @@ function netjes_(r) {
   return {
     id: r.id, bewaard: r.bewaard, bron: r.bron, link: r.link, embed: r.embed,
     naam: r.naam, maker: r.maker, beeld: r.beeld, verborgen: isWaar_(r.verborgen),
-    labels: String(r.labels || '').split(',').map(x => x.trim()).filter(Boolean)
+    labels: String(r.labels || '').split(',').map(x => x.trim()).filter(Boolean),
+    sterren: Math.max(0, Math.min(5, parseInt(r.sterren, 10) || 0))
   };
 }
 
@@ -152,7 +153,7 @@ function bewaar_(tekst, link) {
     bewaard: new Date().toISOString(),
     bron: info.bron, link: info.link, embed: info.embed || '',
     naam: info.naam || '', maker: info.maker || '', beeld: info.beeld || '',
-    verborgen: 'FALSE', labels: ''
+    verborgen: 'FALSE', labels: '', sterren: ''
   };
   sh.appendRow(KOP_F.map(k => rij[k]));
   return netjes_(rij);
@@ -246,6 +247,11 @@ function wijzig_(id, velden) {
     const l = Array.isArray(velden.labels) ? velden.labels : String(velden.labels || '').split(',');
     r.labels = l.map(x => String(x).replace(/,/g, ' ').trim().slice(0, 30)).filter(Boolean).slice(0, 8).join(',');
     sh.getRange(r._rij, KOP_F.indexOf('labels') + 1).setValue(r.labels);
+  }
+  if ('sterren' in velden) {
+    const n = Math.max(0, Math.min(5, Math.round(Number(velden.sterren) || 0)));
+    r.sterren = n ? String(n) : '';
+    sh.getRange(r._rij, KOP_F.indexOf('sterren') + 1).setValue(r.sterren);
   }
   if ('verborgen' in velden) {
     r.verborgen = velden.verborgen ? 'TRUE' : 'FALSE';

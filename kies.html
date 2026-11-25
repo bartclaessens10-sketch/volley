@@ -81,6 +81,10 @@
 
     // ---------- de filmpjes ----------
 
+    const sterrenVan = f => Math.max(0, Math.min(5, parseInt(f.sterren, 10) || 0));
+    // Beste eerst, daarna de nieuwste.
+    const sorteer = l => l.slice().sort((a, b) => sterrenVan(b) - sterrenVan(a) || String(b.bewaard).localeCompare(String(a.bewaard)));
+
     function zichtbaar() {
       const week = Date.now() - 7 * 864e5;
       const metSoort = l => soort ? l.filter(f => heeft(f, soort)) : l;
@@ -88,6 +92,20 @@
       const actief = metSoort(filmpjes.filter(f => !f.verborgen));
       if (filter === 'week') return actief.filter(f => new Date(f.bewaard).getTime() >= week);
       return actief;
+    }
+
+    // De groep van een filmpje, in de volgorde van een training.
+    function groep(f) {
+      const l = labelsVan(f).filter(x => x.toLowerCase() !== 'van vik');
+      const lk = l.map(x => x.toLowerCase());
+      for (const g of ['game-like', 'opwarming', 'onderhands', 'bovenhands', 'opslag']) {
+        if (lk.includes(g)) return BASIS.find(b => b.toLowerCase() === g);
+      }
+      return l[0] || 'Nog zonder kernwoord';
+    }
+    function groepVolgorde() {
+      const eigen = alleLabels().filter(l => !BASIS.includes(l) && l.toLowerCase() !== 'van vik');
+      return ['Opwarming', 'Onderhands', 'Bovenhands', 'Opslag', ...eigen, 'Game-like', 'Nog zonder kernwoord'];
     }
 
     function tekenSoorten() {
@@ -102,17 +120,27 @@
       alleLabels().forEach(l => bar.append(knop(l, l)));
     }
 
+    // Voorvertoning: een filmpje speelt zonder geluid zodra het in beeld komt, en stopt als het uit beeld gaat.
+    const kijker = 'IntersectionObserver' in window ? new IntersectionObserver(items => {
+      items.forEach(it => { if (it.isIntersecting) it.target._laad(); else it.target._los(); });
+    }, { rootMargin: '120px 0px', threshold: 0.25 }) : null;
+
     function kaart(f) {
       const adres = V.speler(f, { auto: true });
-      const beeld = el('div', { class: 'beeld', title: adres ? 'Klik om te bekijken' : 'Open het filmpje' },
-        f.beeld ? el('img', { src: f.beeld, alt: '', loading: 'lazy', onerror: e => e.target.remove() }) : el('div', { class: 'leeg' }, f.maker || V.bronNaam[f.bron]),
-        el('span', { class: 'bron' }, V.bronNaam[f.bron] || 'Link'),
-        el('span', { class: 'speel' }, '▶'));
-      beeld.onclick = () => {
-        if (!adres) { window.open(f.link, '_blank', 'noopener'); return; }
-        if (beeld.querySelector('iframe')) return;
-        beeld.replaceChildren(el('iframe', { src: adres, allow: 'autoplay; encrypted-media; fullscreen', allowfullscreen: true, title: V.naamVan(f) }));
+      const bron = () => el('span', { class: 'bron' }, V.bronNaam[f.bron] || 'Link');
+      const rust = () => [
+        f.beeld ? el('img', { src: f.beeld, alt: '', loading: 'lazy', onerror: e => e.target.remove() }) : el('div', { class: 'leeg' }, f.maker || V.bronNaam[f.bron] || 'Link'),
+        bron(),
+        el('span', { class: 'speel' }, adres ? '▶' : '↗')
+      ];
+      const beeld = el('div', { class: 'beeld', title: adres ? '' : 'Open het filmpje' }, ...rust());
+      beeld._laad = () => {
+        if (!adres || beeld.querySelector('iframe')) return;
+        beeld.replaceChildren(el('iframe', { src: adres, allow: 'autoplay; encrypted-media; fullscreen', allowfullscreen: true, title: V.naamVan(f), loading: 'lazy' }), bron());
       };
+      beeld._los = () => { if (beeld.querySelector('iframe')) beeld.replaceChildren(...rust()); };
+      beeld.onclick = () => { if (!adres) { window.open(f.link, '_blank', 'noopener'); return; } beeld._laad(); };
+      if (kijker && adres) kijker.observe(beeld);
 
       const naam = el('input', { class: 'naam', value: f.naam || '', placeholder: 'Geef het een naam', 'aria-label': 'Naam van de oefening' });
       naam.onchange = async () => {
@@ -122,10 +150,35 @@
       };
       naam.onkeydown = e => { if (e.key === 'Enter') naam.blur(); };
 
-      // kernwoorden: klik om aan of uit te zetten, + voor een eigen woord
+      // sterren: hoe goed vind je de oefening? Nog eens op dezelfde ster klikken haalt ze weg.
+      const sterren = el('div', { class: 'sterren', title: 'Hoe goed vind je deze oefening?' });
+      const tekenSterren = () => {
+        sterren.replaceChildren();
+        const n = sterrenVan(f);
+        for (let i = 1; i <= 5; i++) {
+          const b = el('button', { type: 'button', class: i <= n ? 'aan' : '', 'aria-label': i === 1 ? '1 ster' : i + ' sterren' }, '★');
+          b.onclick = async () => {
+            f.sterren = sterrenVan(f) === i ? 0 : i;
+            tekenSterren();
+            try { await V.wijzig(f.id, { sterren: f.sterren }); } catch (e) { status('De sterren zijn niet bewaard. Probeer opnieuw.', true); }
+          };
+          sterren.append(b);
+        }
+      };
+      tekenSterren();
+
+      // kernwoorden: wat aan staat; met ✎ pas je ze aan. Zonder kernwoord staan alle keuzes meteen open.
       const chips = el('div', { class: 'labels' });
+      let bewerk = !labelsVan(f).some(x => x.toLowerCase() !== 'van vik');
       const tekenChips = () => {
         chips.replaceChildren();
+        if (!bewerk) {
+          labelsVan(f).forEach(l => chips.append(el('span', { class: 'chip aan vast' }, l)));
+          const pen = el('button', { class: 'chip plus', type: 'button', title: 'Kernwoorden aanpassen' }, '✎');
+          pen.onclick = () => { bewerk = true; tekenChips(); };
+          chips.append(pen);
+          return;
+        }
         alleLabels().forEach(l => {
           const aan = heeft(f, l);
           const b = el('button', { class: 'chip' + (aan ? ' aan' : ''), type: 'button' }, l);
@@ -148,6 +201,11 @@
           inp.focus();
         };
         chips.append(plus);
+        if (labelsVan(f).length) {
+          const ok = el('button', { class: 'chip plus', type: 'button', title: 'Klaar' }, '✓');
+          ok.onclick = () => { bewerk = false; tekenChips(); };
+          chips.append(ok);
+        }
       };
       const zetLabel = async (l, aan) => {
         const nu = labelsVan(f).filter(x => x.toLowerCase() !== l.toLowerCase());
@@ -162,30 +220,37 @@
       const voeg = el('button', { class: 'knop' + (zit ? '' : ' geel') }, zit ? 'Erin ✓' : '+ In training');
       voeg.onclick = () => {
         if (gekozen.includes(f.id)) gekozen = gekozen.filter(x => x !== f.id);
-        else gekozen.push(f.id);
+        else voegToe(f.id);
         gewijzigd();
       };
       const verberg = el('button', { class: 'knop klein', title: f.verborgen ? 'Terugzetten' : 'Verbergen' }, f.verborgen ? 'Terug' : 'Verberg');
-      verberg.onclick = async () => {
-        f.verborgen = !f.verborgen;
-        if (f.verborgen) gekozen = gekozen.filter(x => x !== f.id);
-        tekenRaster(); tekenLijst();
-        try { await V.wijzig(f.id, { verborgen: f.verborgen }); } catch (e) { status('Dat is niet bewaard. Probeer opnieuw.', true); }
-      };
-
-      return el('div', { class: 'kaart' + (zit ? ' gekozen' : ''), 'data-id': f.id },
+      const k = el('div', { class: 'kaart' + (zit ? ' gekozen' : ''), 'data-id': f.id },
         beeld,
         el('div', { class: 'info' },
           naam,
+          sterren,
           chips,
           el('div', { class: 'meta' }, [f.maker, 'bewaard ' + V.datum(f.bewaard, true)].filter(Boolean).join(' · ')),
           el('div', { class: 'knoppen' }, voeg, verberg)));
+      verberg.onclick = async () => {
+        f.verborgen = !f.verborgen;
+        if (f.verborgen) gekozen = gekozen.filter(x => x !== f.id);
+        if (kijker) kijker.unobserve(beeld);
+        k.remove();
+        tekenAantal(zichtbaar().length);
+        tekenLijst();
+        try { await V.wijzig(f.id, { verborgen: f.verborgen }); } catch (e) { status('Dat is niet bewaard. Probeer opnieuw.', true); }
+      };
+      return k;
     }
+
+    function tekenAantal(n) { $('aantal').textContent = n === 1 ? '1 filmpje' : n + ' filmpjes'; }
 
     function tekenRaster() {
       tekenSoorten();
-      const lijst = zichtbaar();
-      $('aantal').textContent = lijst.length === 1 ? '1 filmpje' : lijst.length + ' filmpjes';
+      if (kijker) kijker.disconnect();
+      const lijst = sorteer(zichtbaar());
+      tekenAantal(lijst.length);
       const raster = $('raster');
       raster.replaceChildren();
       if (!lijst.length) {
@@ -196,7 +261,42 @@
         raster.append(el('div', { class: 'melding' }, leeg));
         return;
       }
-      lijst.forEach(f => raster.append(kaart(f)));
+      if (soort || filter === 'verborgen') { lijst.forEach(f => raster.append(kaart(f))); return; }
+      // Per soort, in de volgorde van een training; binnen elke soort de beste eerst.
+      const namen = {};
+      const groepen = new Map();
+      groepVolgorde().forEach(g => { namen[g.toLowerCase()] = g; groepen.set(g.toLowerCase(), []); });
+      lijst.forEach(f => {
+        const g = groep(f).toLowerCase();
+        if (!groepen.has(g)) { groepen.set(g, []); namen[g] = groep(f); }
+        groepen.get(g).push(f);
+      });
+      groepen.forEach((l, g) => {
+        if (!l.length) return;
+        raster.append(el('h3', { class: 'groep' }, namen[g], el('span', {}, ' · ' + l.length)));
+        l.forEach(f => raster.append(kaart(f)));
+      });
+    }
+
+    // Een filmpje dat je toevoegt, komt meteen op de juiste plaats: na dezelfde soort, voor wat later in de training komt.
+    function voegToe(id) {
+      const p = perId();
+      const fz = fase(p[id]);
+      let pos = gekozen.findIndex(x => p[x] && fase(p[x]) > fz);
+      if (pos < 0) pos = gekozen.length;
+      gekozen.splice(pos, 0, id);
+    }
+
+    // Na een wijziging in de training: alleen de knoppen bijwerken, zodat de filmpjes blijven spelen.
+    function werkKaartenBij() {
+      document.querySelectorAll('#raster .kaart').forEach(k => {
+        const zit = gekozen.includes(k.dataset.id);
+        k.classList.toggle('gekozen', zit);
+        const b = k.querySelector('.knoppen .knop');
+        if (!b) return;
+        b.textContent = zit ? 'Erin ✓' : '+ In training';
+        b.classList.toggle('geel', !zit);
+      });
     }
 
     // ---------- de training ----------
@@ -252,7 +352,7 @@
       opgeslagen = false;
       status('');
       tekenLijst();
-      tekenRaster();
+      werkKaartenBij();
     }
 
     function status(t, fout = false) {
